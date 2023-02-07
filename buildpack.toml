@@ -7,3 +7,12 @@ name = "fxtentacle heroku buildpack multi"
 
 [[stacks]]
 id = "gitspacer-18"
+
+[[stacks]]
+id = "gitspacer-20"
+
+[[stacks]]
+id = "heroku-18"
+
+[[stacks]]
+id = "heroku-20"
