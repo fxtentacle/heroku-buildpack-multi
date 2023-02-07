@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
-if [ -f $1/.buildpacks ]; then
+PLATFORM_DIR=$1
+PLAN=$2
+APP_DIR=$(pwd)
+
+if [ -f $APP_DIR/.buildpacks ]; then
   echo "Multipack"
   exit 0
 else

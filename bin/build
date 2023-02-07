@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+
+set -e
+
+LAYERS_DIR=$1
+PLATFORM_DIR=$2
+ENV_DIR="$PLATFORM_DIR/env"
+PLAN=$3
+APP_DIR=$(pwd)
+BIN_DIR=$(cd $(dirname $0); pwd)
+BUILDPACK_DIR=$(dirname $BIN_DIR)
+export STACK=heroku-18
+export CNB_STACK_ID=heroku-18
+unset SSL_CERT_FILE
+
+cache_name="download-cache"
+download_cache_dir="${LAYERS_DIR}/${cache_name}"
+mkdir -p "${download_cache_dir}"
+echo "cache = true" > "${LAYERS_DIR}/${cache_name}.toml"
+
+cache_name="exports"
+bp_exports_dir="${LAYERS_DIR}/${cache_name}"
+mkdir -p "${bp_exports_dir}"
+mkdir -p "${bp_exports_dir}/env/"
+cat > "${LAYERS_DIR}/${cache_name}.toml" << EOF
+build = true
+launch = true
+EOF
+
+
+function indent() {
+  c='s/^/       /'
+  case $(uname) in
+    Darwin) sed -l "$c";;
+    *)      sed -u "$c";;
+  esac
+}
+
+unset GIT_DIR
+
+for BUILDPACK in $(cat $APP_DIR/.buildpacks); do
+  dir=$download_cache_dir/${BUILDPACK//[^a-zA-Z0-9_]/_}
+
+  cache_name="cache-${BUILDPACK//[^a-zA-Z0-9_]/_}"
+  bp_cache_dir="${LAYERS_DIR}/${cache_name}"
+  mkdir -p "${bp_cache_dir}"
+  echo "cache = true" > "${LAYERS_DIR}/${cache_name}.toml"
+
+  url=${BUILDPACK%#*}
+  branch=${BUILDPACK#*#}
+
+  if [ "$branch" == "$url" ]; then
+    branch=""
+  fi
+
+  if [ ! -d "$dir" ]; then
+    if [ "$url" != "" ]; then
+      echo "=====> Downloading Buildpack: $url"
+
+      if [[ "$url" =~ \.tgz$ ]]; then
+        mkdir -p "$dir"
+        curl -s "$url" | tar xvz -C "$dir" >/dev/null 2>&1
+      else
+        git clone $url $dir >/dev/null 2>&1
+        if [ -f "$dir/.gitmodules" ]; then
+          echo "=====> Detected git submodules. Initializing..."
+          (cd $dir && git submodule update --init --recursive)
+        fi
+      fi
+    fi
+  fi
+  cd $dir
+
+  if [ "$branch" != "" ]; then
+    git checkout $branch >/dev/null 2>&1
+  fi
+
+  # we'll get errors later if these are needed and don't exist
+  chmod -f +x $dir/bin/{detect,compile,release} || true
+
+  framework=$($dir/bin/detect $APP_DIR)
+
+  if [ $? == 0 ]; then
+    echo "=====> Detected Framework: $framework"
+    echo "=> $dir/bin/compile $APP_DIR $bp_cache_dir $ENV_DIR "
+    $dir/bin/compile $APP_DIR $bp_cache_dir $ENV_DIR
+
+    if [ $? != 0 ]; then
+      exit 1
+    fi
+
+    exports_file="$dir/export"
+    if [ -e $exports_file ]; then
+      "${BUILDPACK_DIR}/bin/exports" "$exports_file" "${PLATFORM_DIR}" "${bp_exports_dir}/env/"
+      source $exports_file
+      rm $exports_file
+    fi
+
+    if [ -x $dir/bin/release ]; then
+      $dir/bin/release $APP_DIR > $APP_DIR/last_pack_release.out
+    fi
+  fi
+done
+
+if [ -e $APP_DIR/last_pack_release.out ]; then
+  echo "Using release configuration from last framework ($framework)."
+fi

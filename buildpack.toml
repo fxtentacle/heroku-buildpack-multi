@@ -1,0 +1,9 @@
+api = "0.2"
+
+[buildpack]
+id = "fxtentacle/heroku-buildpack-multi"
+version = "0.1"
+name = "fxtentacle heroku buildpack multi"
+
+[[stacks]]
+id = "gitspacer-18"
