@@ -4,8 +4,11 @@ PLATFORM_DIR=$1
 PLAN=$2
 APP_DIR=$(pwd)
 
-if [ -f $APP_DIR/.buildpacks ]; then
-  echo "Multipack"
+if [ -f $1/.buildpacks ]; then
+  echo "Heroku Multipack"
+  exit 0
+elif [ -f $APP_DIR/.buildpacks ]; then
+  echo "CNB Multipack"
   exit 0
 else
   echo "no .buildpacks file"
