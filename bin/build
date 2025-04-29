@@ -9,8 +9,8 @@ PLAN=$3
 APP_DIR=$(pwd)
 BIN_DIR=$(cd $(dirname $0); pwd)
 BUILDPACK_DIR=$(dirname $BIN_DIR)
-export STACK=heroku-18
-export CNB_STACK_ID=heroku-18
+export STACK=heroku-20
+export CNB_STACK_ID=heroku-20
 unset SSL_CERT_FILE
 
 cache_name="download-cache"
